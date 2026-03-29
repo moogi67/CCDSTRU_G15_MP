@@ -1,409 +1,391 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef int coord[2];
-typedef int grid[3][3];
-typedef char String10[10];
+typedef int t_arrCoord[2];
+typedef int t_arrGridData[3][3];
+typedef char t_szNameBlock[10];
 
-int LinearSearch(coord Array[], coord Key, int *size)
+int FnFindCoordinateIndex(t_arrCoord arrHaystack[], t_arrCoord arrNeedle, int *pnSize)
 {
-	int index,
-		res = -1,
-		match = 0;
+	int iIndex,
+		iResult = -1,
+		bIsMatch = 0;
 	
-	for(index = 0; index < (*size) && !match; index++)
+	for(iIndex = 0; iIndex < (*pnSize) && !bIsMatch; iIndex++)
 	{
-		if(Array[index][0] == Key[0] && Array[index][1] == Key[1])
+		if(arrHaystack[iIndex][0] == arrNeedle[0] && arrHaystack[iIndex][1] == arrNeedle[1])
 		{
-			res = index;
-			match = 1;
+			iResult = iIndex;
+			bIsMatch = 1;
 		}
 	}
 	
-	return res;
+	return iResult;
 }
 
-void removeLoc(coord pos[], int *index, int *total)
+void FnEraseBoardPosition(t_arrCoord arrPositions[], int *piTargetIndex, int *pnTotalCount)
 {
-	pos[*index][0] = -1; //changed to -1, (0,0) is the first row,col in the cell
-	pos[*index][1] = -1;
-	(*total)--;
+	arrPositions[*piTargetIndex][0] = -1; 
+	arrPositions[*piTargetIndex][1] = -1;
+	(*pnTotalCount)--;
 }
 
-void Remove(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], int *go,
-			int *totalR, int *totalB, int *totalS, int *totalT)
+void FnClearTargetCells(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], int *pbIsRedTurn,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed)
 {
-	int index;
+	int iIndex;
 	
-	if((*go))
+	if((*pbIsRedTurn))
 	{
-		//check if pos is in set R and get its index
-		index = LinearSearch(R, pos, totalR);
-		//empty the element in the index found
-		if(index >= 0)
+		iIndex = FnFindCoordinateIndex(arrRedPieces, arrTargetPos, pnTotalRed);
+		if(iIndex >= 0)
 		{
-			removeLoc(R, &index, totalR);
+			FnEraseBoardPosition(arrRedPieces, &iIndex, pnTotalRed);
 		}
 	}
-	else //replaced else-if statement instead
+	else 
 	{
-		//check if pos is in set B and get its index
-		index = LinearSearch(B, pos, totalB);
-		//empty the element in the index found
-		if(index >= 0)
+		iIndex = FnFindCoordinateIndex(arrBluePieces, arrTargetPos, pnTotalBlue);
+		if(iIndex >= 0)
 		{
-			removeLoc(B, &index, totalB);
+			FnEraseBoardPosition(arrBluePieces, &iIndex, pnTotalBlue);
 		}
 	}
 	
-	////////////////////////////////////////
-	//added conditional statements, prevents returning -1 (removeLoc)
-	//if set S and T has no coordinates
-	//no conditional statements = crash
-	index = LinearSearch(S, pos, totalS);
-	if(index >= 0){
-		removeLoc(S, &index, totalS);
+	iIndex = FnFindCoordinateIndex(arrActiveSet, arrTargetPos, pnTotalActive);
+	if(iIndex >= 0){
+		FnEraseBoardPosition(arrActiveSet, &iIndex, pnTotalActive);
 	}
 	
-	index = LinearSearch(T, pos, totalT);
-	if(index >= 0){
-		removeLoc(T, &index, totalT);
+	iIndex = FnFindCoordinateIndex(arrTraversedSet, arrTargetPos, pnTotalTraversed);
+	if(iIndex >= 0){
+		FnEraseBoardPosition(arrTraversedSet, &iIndex, pnTotalTraversed);
 	}
 }
 
-void Expand(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], int *go, int *found,
-			int *totalR, int *totalB, int *totalS, int *totalT);
+// Function Prototype Declaration
+void FnPropagateCapture(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], int *pbIsRedTurn, int *pbIsTargetFound,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed);
 
-void Replace(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], int *go, int *found,
-			int *totalR, int *totalB, int *totalS, int *totalT)
+void FnSwapPieceOwnership(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], int *pbIsRedTurn, int *pbIsTargetFound,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed)
 {
-	int index;
-	*found = 0;
+	int iIndex;
+	*pbIsTargetFound = 0;
 
-	// Check if position is within bounds
-	if (pos[0] >= 0 && pos[0] <= 2 && pos[1] >= 0 && pos[1] <= 2){
-		//check if pos is in set B and get its index
-		index = LinearSearch(B, pos, totalB);
-		if((*go) && index >= 0)
+	if (arrTargetPos[0] >= 0 && arrTargetPos[0] <= 2 && arrTargetPos[1] >= 0 && arrTargetPos[1] <= 2){
+		
+		iIndex = FnFindCoordinateIndex(arrBluePieces, arrTargetPos, pnTotalBlue);
+		if((*pbIsRedTurn) && iIndex >= 0)
 		{
-			removeLoc(B, &index, totalB);
-			(*found) = 1;
+			FnEraseBoardPosition(arrBluePieces, &iIndex, pnTotalBlue);
+			(*pbIsTargetFound) = 1;
 		}
 	
-		//check if pos is in set R and get its index
-		index = LinearSearch(R, pos, totalR);
-		if((*go) && index >= 0)
+		iIndex = FnFindCoordinateIndex(arrRedPieces, arrTargetPos, pnTotalRed);
+		if((*pbIsRedTurn) && iIndex >= 0)
 		{
-			(*found) = 1;
+			(*pbIsTargetFound) = 1;
 		}
-		else if((*go) && index < 0)
+		else if((*pbIsRedTurn) && iIndex < 0)
 		{
-			//add the current position on the last index
-			R[*totalR][0] = pos[0];
-			R[*totalR][1] = pos[1];
-			//increment the total elements in set R
-			(*totalR)++;
+			arrRedPieces[*pnTotalRed][0] = arrTargetPos[0];
+			arrRedPieces[*pnTotalRed][1] = arrTargetPos[1];
+			(*pnTotalRed)++;
 		}
 	
-		////////////////////////////////////////
-	
-		if(!(*go) && index >= 0)
+		if(!(*pbIsRedTurn) && iIndex >= 0)
 		{
-			removeLoc(R, &index, totalR);
-			(*found) = 1;
+			FnEraseBoardPosition(arrRedPieces, &iIndex, pnTotalRed);
+			(*pbIsTargetFound) = 1;
 		}
 	
-		index = LinearSearch(B, pos, totalB);
-		if(!(*go) && index >= 0)
+		iIndex = FnFindCoordinateIndex(arrBluePieces, arrTargetPos, pnTotalBlue);
+		if(!(*pbIsRedTurn) && iIndex >= 0)
 		{
-			(*found) = 1;
+			(*pbIsTargetFound) = 1;
 		}
-		else if(!(*go) && index < 0)
+		else if(!(*pbIsRedTurn) && iIndex < 0)
 		{
-			B[*totalB][0] = pos[0];
-			B[*totalB][1] = pos[1];
-			(*totalB)++;
+			arrBluePieces[*pnTotalBlue][0] = arrTargetPos[0];
+			arrBluePieces[*pnTotalBlue][1] = arrTargetPos[1];
+			(*pnTotalBlue)++;
 		}
 		
-		index = LinearSearch(S, pos, totalS);
-		if((*found) && index < 0)
+		iIndex = FnFindCoordinateIndex(arrActiveSet, arrTargetPos, pnTotalActive);
+		if((*pbIsTargetFound) && iIndex < 0)
 		{
-			S[*totalS][0] = pos[0];
-			S[*totalS][1] = pos[1];
-			(*totalS)++;
+			arrActiveSet[*pnTotalActive][0] = arrTargetPos[0];
+			arrActiveSet[*pnTotalActive][1] = arrTargetPos[1];
+			(*pnTotalActive)++;
 		
-			(*found) = 0;
+			(*pbIsTargetFound) = 0;
 		}
-		else if((*found) && index >= 0 && (LinearSearch(T, pos, totalT) < 0))
+		else if((*pbIsTargetFound) && iIndex >= 0 && (FnFindCoordinateIndex(arrTraversedSet, arrTargetPos, pnTotalTraversed) < 0))
 		{
-			T[*totalT][0] = pos[0];
-			T[*totalT][1] = pos[1];
-			(*totalT)++;
-			Expand(pos, R, B, 
-				S, T, go, found,
-				totalR, totalB, totalS, totalT);
+			arrTraversedSet[*pnTotalTraversed][0] = arrTargetPos[0];
+			arrTraversedSet[*pnTotalTraversed][1] = arrTargetPos[1];
+			(*pnTotalTraversed)++;
+			FnPropagateCapture(arrTargetPos, arrRedPieces, arrBluePieces, 
+				arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+				pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 		}		
 	}
 }
 
-void Expand(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], int *go, int *found,
-			int *totalR, int *totalB, int *totalS, int *totalT)
+void FnPropagateCapture(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], int *pbIsRedTurn, int *pbIsTargetFound,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed)
 {
-	coord u;
-		u[0] = (pos[0]) - 1;
-		u[1] = pos[1];
+	t_arrCoord arrUp;
+		arrUp[0] = (arrTargetPos[0]) - 1;
+		arrUp[1] = arrTargetPos[1];
 		
-	coord d;
-		d[0] = (pos[0]) + 1;
-		d[1] = pos[1];
+	t_arrCoord arrDown;
+		arrDown[0] = (arrTargetPos[0]) + 1;
+		arrDown[1] = arrTargetPos[1];
 		
-	coord k;
-		k[0] = pos[0];
-		k[1] = (pos[1]) - 1;
+	t_arrCoord arrLeft;
+		arrLeft[0] = arrTargetPos[0];
+		arrLeft[1] = (arrTargetPos[1]) - 1;
 		
-	coord r;
-		r[0] = pos[0];
-		r[1] = (pos[1]) + 1;
+	t_arrCoord arrRight;
+		arrRight[0] = arrTargetPos[0];
+		arrRight[1] = (arrTargetPos[1]) + 1;
 		
-	Remove(pos, R, B, 
-			S, T, go,
-			totalR, totalB, totalS, totalT);
+	FnClearTargetCells(arrTargetPos, arrRedPieces, arrBluePieces, 
+			arrActiveSet, arrTraversedSet, pbIsRedTurn,
+			pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 			
-	// Only call Replace on neighbors if they are within bounds
-	if(u[0] >= 0 && u[0] <= 2 && u[1] >= 0 && u[1] <= 2)
+	if(arrUp[0] >= 0 && arrUp[0] <= 2 && arrUp[1] >= 0 && arrUp[1] <= 2)
 	{
-		if((*go))
+		if((*pbIsRedTurn))
 		{
-			Replace(u, R, B, 
-				S, T, go, found,
-				totalR, totalB, totalS, totalT);
+			FnSwapPieceOwnership(arrUp, arrRedPieces, arrBluePieces, 
+				arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+				pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 		}
-		else if(!(*go))
+		else if(!(*pbIsRedTurn))
 		{
-			Replace(d, R, B, 
-				S, T, go, found,
-				totalR, totalB, totalS, totalT);
+			FnSwapPieceOwnership(arrDown, arrRedPieces, arrBluePieces, 
+				arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+				pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 		}
 	}
 	
-	// Replace left and right neighbors if within bounds
-	if(k[0] >= 0 && k[0] <= 2 && k[1] >= 0 && k[1] <= 2)
+	if(arrLeft[0] >= 0 && arrLeft[0] <= 2 && arrLeft[1] >= 0 && arrLeft[1] <= 2)
 	{
-		Replace(k, R, B, 
-				S, T, go, found,
-				totalR, totalB, totalS, totalT);
+		FnSwapPieceOwnership(arrLeft, arrRedPieces, arrBluePieces, 
+				arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+				pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 	}
 	
-	if(r[0] >= 0 && r[0] <= 2 && r[1] >= 0 && r[1] <= 2)
+	if(arrRight[0] >= 0 && arrRight[0] <= 2 && arrRight[1] >= 0 && arrRight[1] <= 2)
 	{
-		Replace(r, R, B, 
-				S, T, go, found,
-				totalR, totalB, totalS, totalT);
+		FnSwapPieceOwnership(arrRight, arrRedPieces, arrBluePieces, 
+				arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+				pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 	}	
 }
 
-void Update(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], int *go, int *found,
-			int *totalR, int *totalB, int *totalS, int *totalT, int *good)
+void FnProcessTurnUpdate(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], int *pbIsRedTurn, int *pbIsTargetFound,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed, int *pbIsValidMove)
 {
-	int index;
-	*good = 0;
-	index = LinearSearch(S, pos, totalS);
-	if(index < 0)
+	int iIndex;
+	*pbIsValidMove = 0;
+	iIndex = FnFindCoordinateIndex(arrActiveSet, arrTargetPos, pnTotalActive);
+	
+	if(iIndex < 0)
 	{
-		S[*totalS][0] = pos[0];
-		S[*totalS][1] = pos[1];
-		(*totalS)++;
+		arrActiveSet[*pnTotalActive][0] = arrTargetPos[0];
+		arrActiveSet[*pnTotalActive][1] = arrTargetPos[1];
+		(*pnTotalActive)++;
 		
-		*good = 1; // good becomes true
+		*pbIsValidMove = 1; 
 	}
 	
-	index = LinearSearch(S, pos, totalS);
-	if(!(*good) && index >= 0 && (LinearSearch(T, pos, totalT) < 0))
+	iIndex = FnFindCoordinateIndex(arrActiveSet, arrTargetPos, pnTotalActive);
+	if(!(*pbIsValidMove) && iIndex >= 0 && (FnFindCoordinateIndex(arrTraversedSet, arrTargetPos, pnTotalTraversed) < 0))
 	{
-		T[*totalT][0] = pos[0];
-		T[*totalT][1] = pos[1];
-		(*totalT)++;
+		arrTraversedSet[*pnTotalTraversed][0] = arrTargetPos[0];
+		arrTraversedSet[*pnTotalTraversed][1] = arrTargetPos[1];
+		(*pnTotalTraversed)++;
 		
-		Expand(pos, R, B, 
-			S, T, go, found,
-			totalR, totalB, totalS, totalT);
+		FnPropagateCapture(arrTargetPos, arrRedPieces, arrBluePieces, 
+			arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+			pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed);
 	}
 }
 
-int checkFreeSpaces(coord R[], coord B[], grid F, int *totalR, int *totalB)
+int FnCountEmptyCells(t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], t_arrGridData arrFieldMatrix, int *pnTotalRed, int *pnTotalBlue)
 {
-	int a,
-		b,
-		res = 0,
-		coordIndex;
+	int iRow,
+		iCol,
+		iEmptyCount = 0,
+		iPieceIdx;
 	
-	
-	for(a = 0; a < 3; a++) //ROW
+	for(iRow = 0; iRow < 3; iRow++)
 	{
-		for(b = 0; b < 3; b++) //COLUMN
+		for(iCol = 0; iCol < 3; iCol++)
 		{
-			F[a][b] = 0;
+			arrFieldMatrix[iRow][iCol] = 0;
 		}
 	}
 	
-	for(coordIndex = 0; coordIndex < (*totalR); coordIndex++)
+	for(iPieceIdx = 0; iPieceIdx < (*pnTotalRed); iPieceIdx++)
 	{
-		if(R[coordIndex][0] >= 0 && R[coordIndex][1] >= 0)
-			F[R[coordIndex][0]][R[coordIndex][1]] = 1;
+		if(arrRedPieces[iPieceIdx][0] >= 0 && arrRedPieces[iPieceIdx][1] >= 0)
+			arrFieldMatrix[arrRedPieces[iPieceIdx][0]][arrRedPieces[iPieceIdx][1]] = 1;
 	}
 	
-	for(coordIndex = 0; coordIndex < (*totalB); coordIndex++)
+	for(iPieceIdx = 0; iPieceIdx < (*pnTotalBlue); iPieceIdx++)
 	{
-		if(B[coordIndex][0] >= 0 && B[coordIndex][1] >= 0)
-			F[B[coordIndex][0]][B[coordIndex][1]] = 1;
+		if(arrBluePieces[iPieceIdx][0] >= 0 && arrBluePieces[iPieceIdx][1] >= 0)
+			arrFieldMatrix[arrBluePieces[iPieceIdx][0]][arrBluePieces[iPieceIdx][1]] = 1;
 	}
 	
-	for(a = 0; a < 3; a++)
+	for(iRow = 0; iRow < 3; iRow++)
 	{
-		for(b = 0; b < 3; b++)
+		for(iCol = 0; iCol < 3; iCol++)
 		{
-			if(F[a][b] == 0)
-				res++;
+			if(arrFieldMatrix[iRow][iCol] == 0)
+				iEmptyCount++;
 		}
 	}
 	
-	return res;
+	return iEmptyCount;
 }
 
-void checkIfOver(coord R[], coord B[], grid F, int *val, 
-			int *start, int *totalR, int *totalB, int *over)
+void FnEvaluateMatchConclusion(t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], t_arrGridData arrFieldMatrix, int *pnTurnCount, 
+			int *pbIsPlacementPhase, int *pnTotalRed, int *pnTotalBlue, int *pbIsGameOver)
 {
-	int freeSpace = checkFreeSpaces(R, B, F, totalR, totalB);
+	int iFreeSpace = FnCountEmptyCells(arrRedPieces, arrBluePieces, arrFieldMatrix, pnTotalRed, pnTotalBlue);
 	
-	// Fixed game ending condition: over is true if ANY condition is met
-	if (freeSpace == 3 || *val >= 20 || 
-	    (!(*start) && ((*totalR > 0 && *totalB == 0) || (*totalR == 0 && *totalB > 0))))
+	if (iFreeSpace == 3 || *pnTurnCount >= 20 || 
+	    (!(*pbIsPlacementPhase) && ((*pnTotalRed > 0 && *pnTotalBlue == 0) || (*pnTotalRed == 0 && *pnTotalBlue > 0))))
 	{
-		*over = 1;
+		*pbIsGameOver = 1;
 	}
 }
 
-void NextPlayerMove(coord pos, coord R[], coord B[], 
-			coord S[], coord T[], grid F, int *val, int *go, int *found,
-			int *totalR, int *totalB, int *totalS, int *totalT, int *good, 
-			int *over, int *start)
+void FnExecutePlayerAction(t_arrCoord arrTargetPos, t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], 
+			t_arrCoord arrActiveSet[], t_arrCoord arrTraversedSet[], t_arrGridData arrFieldMatrix, int *pnTurnCount, int *pbIsRedTurn, int *pbIsTargetFound,
+			int *pnTotalRed, int *pnTotalBlue, int *pnTotalActive, int *pnTotalTraversed, int *pbIsValidMove, 
+			int *pbIsGameOver, int *pbIsPlacementPhase)
 {
-	int indexR = LinearSearch(R, pos, totalR);
-	int indexB = LinearSearch(B, pos, totalB);
+	int iIndexRed = FnFindCoordinateIndex(arrRedPieces, arrTargetPos, pnTotalRed);
+	int iIndexBlue = FnFindCoordinateIndex(arrBluePieces, arrTargetPos, pnTotalBlue);
 	
-	// Check if position is valid (within bounds)
-	if(pos[0] < 0 || pos[0] > 2 || pos[1] < 0 || pos[1] > 2)
+	if(arrTargetPos[0] < 0 || arrTargetPos[0] > 2 || arrTargetPos[1] < 0 || arrTargetPos[1] > 2)
 	{
 		printf("Invalid coordinates! Please enter numbers 1-3.\n");
-		*good = 0;
+		*pbIsValidMove = 0;
 		return;
 	}
 	
-	checkIfOver(R, B, F, val, 
-			start, totalR, totalB, over);
+	FnEvaluateMatchConclusion(arrRedPieces, arrBluePieces, arrFieldMatrix, pnTurnCount, 
+			pbIsPlacementPhase, pnTotalRed, pnTotalBlue, pbIsGameOver);
 	
-	if(!(*over))
+	if(!(*pbIsGameOver))
 	{
-		if((*start))
+		if((*pbIsPlacementPhase))
 		{
-			// Check if position is already occupied
-			if(indexR >= 0 || indexB >= 0)
+			if(iIndexRed >= 0 || iIndexBlue >= 0)
 			{
 				printf("Position already occupied! Choose an empty spot.\n");
-				*good = 0;
+				*pbIsValidMove = 0;
 				return;
 			}
 			
-			if((*go)){
-				R[*totalR][0] = pos[0];
-				R[*totalR][1] = pos[1];
-				(*totalR)++;
-				printf("Red placed piece at (%d,%d)\n", pos[0]+1, pos[1]+1);
+			if((*pbIsRedTurn)){
+				arrRedPieces[*pnTotalRed][0] = arrTargetPos[0];
+				arrRedPieces[*pnTotalRed][1] = arrTargetPos[1];
+				(*pnTotalRed)++;
+				printf("Red placed piece at (%d,%d)\n", arrTargetPos[0]+1, arrTargetPos[1]+1);
 			}
 			else{
-				B[*totalB][0] = pos[0];
-				B[*totalB][1] = pos[1];
-				(*totalB)++;
-				printf("Blue placed piece at (%d,%d)\n", pos[0]+1, pos[1]+1);
+				arrBluePieces[*pnTotalBlue][0] = arrTargetPos[0];
+				arrBluePieces[*pnTotalBlue][1] = arrTargetPos[1];
+				(*pnTotalBlue)++;
+				printf("Blue placed piece at (%d,%d)\n", arrTargetPos[0]+1, arrTargetPos[1]+1);
 			}
 			
-			if(LinearSearch(S, pos, totalS) < 0){
-				S[*totalS][0] = pos[0];
-				S[*totalS][1] = pos[1];
-				(*totalS)++;
+			if(FnFindCoordinateIndex(arrActiveSet, arrTargetPos, pnTotalActive) < 0){
+				arrActiveSet[*pnTotalActive][0] = arrTargetPos[0];
+				arrActiveSet[*pnTotalActive][1] = arrTargetPos[1];
+				(*pnTotalActive)++;
 			}
-			*good = 1;
+			*pbIsValidMove = 1;
 		}
-		else if(!(*start)){
-			if(((*go) && indexR >= 0) || (!(*go) && indexB >= 0)){
-				Update(pos, R, B, 
-						S, T, go, found,
-						totalR, totalB, totalS, totalT, good);
+		else if(!(*pbIsPlacementPhase)){
+			if(((*pbIsRedTurn) && iIndexRed >= 0) || (!(*pbIsRedTurn) && iIndexBlue >= 0)){
+				FnProcessTurnUpdate(arrTargetPos, arrRedPieces, arrBluePieces, 
+						arrActiveSet, arrTraversedSet, pbIsRedTurn, pbIsTargetFound,
+						pnTotalRed, pnTotalBlue, pnTotalActive, pnTotalTraversed, pbIsValidMove);
 				printf("Move executed with Update\n");
 			}
 			else{
 				printf("Invalid move! You must select a position containing your piece.\n");
-				*good = 0;
+				*pbIsValidMove = 0;
 				return;
 			}
 		}
 		
-		if ((*good)){
-			*good = 0;
-			*go = !(*go);
-			(*val)++;
-			printf("Turn switched. Move count: %d\n", *val);
+		if ((*pbIsValidMove)){
+			*pbIsValidMove = 0;
+			*pbIsRedTurn = !(*pbIsRedTurn);
+			(*pnTurnCount)++;
+			printf("Turn switched. Move count: %d\n", *pnTurnCount);
 		}
 	}
 	
-	if ((*start) && (*totalR) == 1 && (*totalB) == 1)
+	if ((*pbIsPlacementPhase) && (*pnTotalRed) == 1 && (*pnTotalBlue) == 1)
 	{
-		*start = 0;
+		*pbIsPlacementPhase = 0;
 		printf("Placement phase ended. Now entering capture phase!\n");
 	}
 }
 
-void GameOver(coord R[], coord B[], int *over, int *totalR, int *totalB)
+void FnDisplayMatchResults(t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], int *pbIsGameOver, int *pnTotalRed, int *pnTotalBlue)
 {
-	if(*over)
+	if(*pbIsGameOver)
 	{
 		printf("\n=========================================\n");
 		printf("GAME OVER!\n");
 		
-		if((*totalR) > (*totalB))
-			printf("Result: R wins! (%d vs %d)\n", *totalR, *totalB);
-		else if((*totalR) < (*totalB))
-			printf("Result: B wins! (%d vs %d)\n", *totalR, *totalB);
+		if((*pnTotalRed) > (*pnTotalBlue))
+			printf("Result: R wins! (%d vs %d)\n", *pnTotalRed, *pnTotalBlue);
+		else if((*pnTotalRed) < (*pnTotalBlue))
+			printf("Result: B wins! (%d vs %d)\n", *pnTotalRed, *pnTotalBlue);
 		else
-			printf("Result: Draw! (%d vs %d)\n", *totalR, *totalB);
+			printf("Result: Draw! (%d vs %d)\n", *pnTotalRed, *pnTotalBlue);
 		printf("=========================================\n");
 	}
 }
 
-void printGrid(coord R[], coord B[], int *totalR, int *totalB)
+void FnRenderPlayfield(t_arrCoord arrRedPieces[], t_arrCoord arrBluePieces[], int *pnTotalRed, int *pnTotalBlue)
 {
-	int a, b;
-	coord temp;
+	int iRow, iCol;
+	t_arrCoord arrTempCoord;
 	
 	printf("  1 2 3\n");
-	for(a = 0; a < 3; a++)
+	for(iRow = 0; iRow < 3; iRow++)
 	{
-		printf("%d ", a+1);
-		for(b = 0; b < 3; b++)
+		printf("%d ", iRow+1);
+		for(iCol = 0; iCol < 3; iCol++)
 		{
-			temp[0] = a;
-			temp[1] = b;
+			arrTempCoord[0] = iRow;
+			arrTempCoord[1] = iCol;
 			
-			if(LinearSearch(R, temp, totalR) >= 0)
+			if(FnFindCoordinateIndex(arrRedPieces, arrTempCoord, pnTotalRed) >= 0)
 			{
 				printf("R ");
 			}
-			else if(LinearSearch(B, temp, totalB) >= 0)
+			else if(FnFindCoordinateIndex(arrBluePieces, arrTempCoord, pnTotalBlue) >= 0)
 			{
 				printf("B ");
 			}
@@ -416,33 +398,33 @@ void printGrid(coord R[], coord B[], int *totalR, int *totalB)
 
 int main()
 {	
-	coord R[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
-		B[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
-		S[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
-		T[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
-		pos;
+	t_arrCoord arrRedSet[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
+		arrBlueSet[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
+		arrActiveSetS[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
+		arrTraversedSetT[9] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1}},
+		arrCurrentPos;
 	
-	grid F;
+	t_arrGridData arrFieldMatrix;
 	
-	int ctr, ctr2;
-	for(ctr = 0; ctr < 3; ctr++)
+	int iLoopY, iLoopX;
+	for(iLoopY = 0; iLoopY < 3; iLoopY++)
 	{
-		for(ctr2 = 0; ctr2 < 3; ctr2++)
+		for(iLoopX = 0; iLoopX < 3; iLoopX++)
 		{
-			F[ctr][ctr2] = 0;
+			arrFieldMatrix[iLoopY][iLoopX] = 0;
 		}
 	}
 	
-	int totalR = 0,
-		totalB = 0,
-		totalS = 0,
-		totalT = 0,
-		good = 0,
-		go = 1,
-		start = 1,
-		over = 0,
-		found = 0,
-		val = 0;
+	int iTotalRed = 0,
+		iTotalBlue = 0,
+		iTotalActive = 0,
+		iTotalTraversed = 0,
+		bIsValidMove = 0,
+		bIsRedTurn = 1,
+		bIsPlacementPhase = 1,
+		bIsGameOver = 0,
+		bIsTargetFound = 0,
+		iTurnCount = 0;
 	
 	printf("=========================================\n");
 	printf("     COLOR CAPTURE GAME\n");
@@ -454,48 +436,46 @@ int main()
 	printf("Phase 2: Select your pieces to capture opponent's pieces\n");
 	printf("=========================================\n\n");
 	
-	while(!over)
+	while(!bIsGameOver)
 	{
 		printf("\n");
-		printGrid(R, B, &totalR, &totalB);
+		FnRenderPlayfield(arrRedSet, arrBlueSet, &iTotalRed, &iTotalBlue);
 		printf("\n");
 		
-		if(start)
+		if(bIsPlacementPhase)
 			printf("Placement Phase - ");
 		else
 			printf("Capture Phase - ");
 			
-		if(go)
+		if(bIsRedTurn)
 		{
 			printf("Red's turn\n");
 			printf("Enter coordinates (row col, 1-3): ");
-			scanf("%d %d", &pos[0], &pos[1]);
-			pos[0]--;
-			pos[1]--;
+			scanf("%d %d", &arrCurrentPos[0], &arrCurrentPos[1]);
+			arrCurrentPos[0]--;
+			arrCurrentPos[1]--;
 		}
 		else
 		{
 			printf("Blue's turn\n");
 			printf("Enter coordinates (row col, 1-3): ");
-			scanf("%d %d", &pos[0], &pos[1]);
-			pos[0]--;
-			pos[1]--;
+			scanf("%d %d", &arrCurrentPos[0], &arrCurrentPos[1]);
+			arrCurrentPos[0]--;
+			arrCurrentPos[1]--;
 		}
 		
-		NextPlayerMove(pos, R, B, 
-			S, T, F, &val, &go, &found,
-			&totalR, &totalB, &totalS, &totalT, &good, 
-			&over, &start);
+		FnExecutePlayerAction(arrCurrentPos, arrRedSet, arrBlueSet, 
+			arrActiveSetS, arrTraversedSetT, arrFieldMatrix, &iTurnCount, &bIsRedTurn, &bIsTargetFound,
+			&iTotalRed, &iTotalBlue, &iTotalActive, &iTotalTraversed, &bIsValidMove, 
+			&bIsGameOver, &bIsPlacementPhase);
 			
-		// Re-check game over condition after move
-		checkIfOver(R, B, F, &val, &start, &totalR, &totalB, &over);
+		FnEvaluateMatchConclusion(arrRedSet, arrBlueSet, arrFieldMatrix, &iTurnCount, &bIsPlacementPhase, &iTotalRed, &iTotalBlue, &bIsGameOver);
 	}
 	
-	// Print final board
 	printf("\nFinal board state:\n");
-	printGrid(R, B, &totalR, &totalB);
+	FnRenderPlayfield(arrRedSet, arrBlueSet, &iTotalRed, &iTotalBlue);
 	
-	GameOver(R, B, &over, &totalR, &totalB);
+	FnDisplayMatchResults(arrRedSet, arrBlueSet, &bIsGameOver, &iTotalRed, &iTotalBlue);
 	
 	return 0;
 }
